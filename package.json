@@ -5,7 +5,8 @@
   "main": "none",
   "scripts": {
     "test": "none",
-    "install": "rm -rf ./server/server_example/node_modules/*/.git/ && (cd ./angular_app && npm i &) && cd ./server/server_example && npm i",
+    "install": "npm run remove-git && (cd ./angular_app && npm i &) && cd ./server/server_example && npm i",
+    "remove-git": "rm -rf ./server/server_example/node_modules/*/.git/ && rm -rf ./angular_app/node_modules/*/.git/",
     "start": "npm run start-local",
     "start-local": "(npm run start-local-server &) && npm run start-ui",
     "start-ui": "cd ./angular_app && ng serve",
