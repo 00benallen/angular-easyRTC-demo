@@ -1,0 +1,73 @@
+<div class="main-page-grid-container bg-dark">
+    <ng-container *ngIf="loginId; else login">
+        <h1 class="text-dark m-3 bg-light"
+        >Your username is: {{loginId}}</h1>
+
+        <div class="card bg-secondary text-white">
+
+            <h2 class="card-title">Friends Online</h2>
+
+            <ng-container *ngIf="occupants && occupants.length > 0; else noFriends">
+                <p *ngFor="let occupant of occupants" class="card-text">> {{occupant}}</p>
+
+            </ng-container>
+
+            <ng-template #noFriends><p>No one online!</p></ng-template>
+            
+        </div>
+
+        <div class="card bg-secondary text-white" *ngIf="occupants && occupants.length > 0">
+
+            <h2 class="card-title">Chat</h2>
+
+            <p *ngFor="let message of conversation" class="card-text">{{message}}</p>
+
+            <div class="input-group mb-3">
+                <input [(ngModel)]="text" type="text" class="form-control">
+                <div class="input-group-append">
+                    <button (click)="sendMessage()" class="btn btn-outline-light" type="button">Send</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card bg-secondary text-white" *ngIf="occupants && occupants.length > 0">
+
+            <h2 class="card-title">Create a Post</h2>
+
+            <div class="input-group mb-3">
+                <input placeholder="title" [(ngModel)]="postTitle" class="form-control">
+            </div>
+            <div class="input-group mb-3">
+                <input placeholder="content" [(ngModel)]="postContent" class="form-control">
+            </div>
+
+            <button (click)="sendPost()" class="btn btn-outline-light btn-new-line">Submit</button>
+
+        </div>
+        <div class="card bg-secondary text-white" *ngIf="occupants && occupants.length > 0 && posts && posts.length > 0">
+            <h2 class="card-title">Post Feed</h2>
+            <ng-container *ngFor="let post of posts">
+                <div class="card bg-light text-dark">
+                    <h3 class="card-text">{{post.title}}</h3>
+                    <h4 class="card-text">By: {{post.author}}</h4>
+                    <p class="card-text">{{post.content}}</p>
+                </div>
+            </ng-container>
+        </div>
+    </ng-container>
+
+    <ng-template #login>
+
+            <div class="card bg-secondary text-white">
+                <h2 class="card-title">Enter your desired username, or click start chatting to get a random one: </h2>
+                <div class="card-body">
+                    
+                    <input [(ngModel)]="username">
+                    <button (click)="startChat()" class="btn btn-primary btn-new-line">Start chatting!</button>
+                </div>
+            </div>
+            
+    </ng-template>
+
+    <router-outlet></router-outlet>
+</div>

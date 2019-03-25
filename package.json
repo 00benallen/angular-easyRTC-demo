@@ -1,0 +1,24 @@
+{
+  "name": "angular-easyrtc-demo",
+  "version": "1.0.0",
+  "description": "",
+  "main": "none",
+  "scripts": {
+    "test": "none",
+    "install": "rm -rf ./server/server_example/node_modules/*/.git/ && (cd ./angular_app && npm i &) && cd ./server/server_example && npm i",
+    "start": "npm run start-local",
+    "start-local": "(npm run start-local-server &) && npm run start-ui",
+    "start-ui": "cd ./angular_app && ng serve",
+    "start-local-server": "cd ./server/server_example && npm run start"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/00benallen/angular-easyRTC-demo.git"
+  },
+  "author": "Ben Pinhorn",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/00benallen/angular-easyRTC-demo/issues"
+  },
+  "homepage": "https://github.com/00benallen/angular-easyRTC-demo#readme"
+}
