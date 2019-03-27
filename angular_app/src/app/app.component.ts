@@ -10,7 +10,6 @@ import { State, StateService, Post, initialState, User, ChatMessage } from './ea
   styleUrls: ['./app.component.scss']
 })
 export class AppComponent implements OnInit, OnDestroy {
-  title = 'angular-easyRTC-demo';
 
   /**
    * Variables from app state
@@ -22,8 +21,9 @@ export class AppComponent implements OnInit, OnDestroy {
   /**
    * Variables copied from app state for convenience in template
    */
-  friendsOnline: User[]
+  friendsOnline: User[];
   conversation: ChatMessage[];
+  posts: Post[];
 
   /**
    * Bound variables from template
@@ -44,6 +44,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.postTitle = "";
     this.friendsOnline = [];
     this.conversation = [];
+    this.posts = [];
 
     this.easyRTCState = initialState;
 
@@ -51,13 +52,14 @@ export class AppComponent implements OnInit, OnDestroy {
       this.easyRTCState = state;
 
       //Synchronize convenience variables with new state
-      if(state) {
+      if (state) {
 
-        if(state.room.loggedInUser) {
+        if (state.room.loggedInUser) {
           this.username = state.room.loggedInUser.username;
         }
         this.friendsOnline = state.room.onlineUsers;
         this.conversation = state.room.chat;
+        this.posts = state.room.postFeed;
 
       }
       
@@ -112,7 +114,7 @@ export class AppComponent implements OnInit, OnDestroy {
     if(this.easyRTCState) {
       this.easyRTCState.room.postFeed.push({
         author: this.easyRTCService.buildUser(undefined, this.username),
-        content: this.text,
+        content: this.postContent,
         id: uuid(),
         postTime: new Date(),
         title: this.postTitle
@@ -140,5 +142,9 @@ export class AppComponent implements OnInit, OnDestroy {
 
   onMessageType(text: string) {
     this.text = text;
+  }
+
+  isBackendReady(): boolean {
+    return this.friendsOnline && this.friendsOnline.length > 0 && !this.easyRTCState.connection.newcomer;
   }
 }

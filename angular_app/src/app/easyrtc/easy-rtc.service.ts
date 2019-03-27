@@ -8,7 +8,6 @@ import { Injectable } from '@angular/core';
 import { environment } from 'src/environments/environment';
 import { StateService, State, User, initialState } from './state';
 import { Subscription } from 'rxjs';
-import { sync } from './synchronizers/conversation.sync';
 
 /**
  * The socket.io.js and easyrtc.js files expose these two global variables, 
@@ -17,7 +16,8 @@ import { sync } from './synchronizers/conversation.sync';
 export const io = window["io"];
 
 export enum MessageType {
-  SEND_SYNC = "SEND_SYNC"
+  SEND_SYNC = "SEND_SYNC",
+  RECV_SYNC = "RECV_SYNC"
 }
 
 /**
@@ -30,6 +30,8 @@ export class EasyRTCService {
 
   private currentState: State;
   private stateSubscription: Subscription;
+  
+  private sendSyncWaitingUsers: string[];
 
   constructor(private stateService: StateService) { 
 
@@ -59,14 +61,22 @@ export class EasyRTCService {
     // })
 
     this.currentState = initialState;
+    this.sendSyncWaitingUsers = [];
 
     this.stateSubscription = stateService.stateEvents$.subscribe((state) => {
 
       this.currentState = state;
 
       if(state.connection.newcomer) {
-        console.log("Processing state as newcomer, need to request state from peers")
-        //TODO request state versions from all peers
+        
+        for(let user of state.room.onlineUsers) {
+
+          console.log('Sending request for state sync as newcomer from user: ', user);
+
+          easyrtc.sendDataP2P(user.easyRTCId, MessageType.RECV_SYNC, undefined);
+    
+        }
+
       } else if(!state.room.localStateSynchronized){
 
         console.log("Local state needs synchronizing with peers, sending local state to all peers");
@@ -147,7 +157,7 @@ export class EasyRTCService {
 
     this.currentState.room.onlineUsers.push(newUser);
 
-    console.log(`Adding ${newUser} to list of online users`);
+    console.log('Adding user to list of online users: ', newUser);
     this.stateService.pushNewState({
       connection: { ...this.currentState.connection },
       room: {
@@ -155,6 +165,11 @@ export class EasyRTCService {
         onlineUsers: this.currentState.room.onlineUsers,
       }
     });
+
+    if (this.sendSyncWaitingUsers.includes(caller)) {
+      console.log(`Caller ${caller} was waiting for synchronization, sending now`);
+      this.sendSyncDataToRequestingPeer(caller);
+    }
   }
 
   private closeListener(caller: string) {
@@ -179,14 +194,33 @@ export class EasyRTCService {
     });
   }
 
-  private peerListener(easyrtcId: string, msgType: string, msgData: State, targetting: Easyrtc_MessageTargeting) {
+  private peerListener(easyrtcId: string, msgType: string, msgData: State | undefined, targetting: Easyrtc_MessageTargeting) {
     console.log(`Recieved ${msgType} message from ${easyrtc.idToName(easyrtcId)}`);
 
     if(msgType === MessageType.SEND_SYNC) {
       console.log('Recieved state from peer: '); 
       console.log(msgData);
 
-      this.syncState(msgData);
+      if (msgData) {
+        this.stateService.syncState(this.currentState, msgData);
+
+        console.log('State synchronized with peer, no longer newcomer');
+        this.stateService.pushNewState({
+          room: { ...this.currentState.room },
+          connection: {
+            ...this.currentState.connection,
+            newcomer: false
+          }
+        });
+      } else {
+        console.error('Recieved SEND_SYNC message to synchronize state with peer, but no new state recieved');
+      }
+    }
+
+    if(msgType === MessageType.RECV_SYNC) {
+
+      this.sendSyncDataToRequestingPeer(easyrtcId);
+
     }
 
     // this.peerListenerEvents$.next(
@@ -196,6 +230,26 @@ export class EasyRTCService {
     //     msgData: msgData, 
     //     targetting: targetting
     //   });
+  }
+
+  private sendSyncDataToRequestingPeer(peerId: string) {
+    let onlineEasyRTCIds = this.currentState.room.onlineUsers.map(user => user.easyRTCId);
+
+      if (onlineEasyRTCIds.includes(peerId)) {
+        console.log(`Peer ${peerId} requested state update, sending state`);
+        easyrtc.sendDataP2P(peerId, MessageType.SEND_SYNC, this.currentState);
+
+        //remove user from waiting list
+        const index = this.sendSyncWaitingUsers.indexOf(peerId, 0);
+        if (index > -1) {
+          this.sendSyncWaitingUsers.splice(index, 1);
+        }
+      } else {
+        console.log(`Data stream not ready to send state sync to peer, queuing`);
+
+        //add user to waiting list
+        this.sendSyncWaitingUsers.push(peerId);
+      }
   }
 
   private occupantListener(_roomName: string, occupants: Easyrtc_PerRoomData, _isOwner: boolean) {
@@ -225,13 +279,6 @@ export class EasyRTCService {
         }
       }
     }
-    this.stateService.pushNewState({
-      room: { ...this.currentState.room },
-      connection: {
-        ...this.currentState.connection,
-        newcomer: false
-      }
-    });
   }
 
   private loginSuccess(easyrtcid: string) {
@@ -279,20 +326,4 @@ export class EasyRTCService {
       }
     }
   }
-
-  private syncState(newState: State) {
-
-    let stateWithSyncedChat = sync(this.currentState, newState);
-
-
-    console.log('Pushing synchronized state in local state');
-    this.stateService.pushNewState({
-      ...stateWithSyncedChat,
-      room: {
-        ...stateWithSyncedChat.room,
-        localStateSynchronized: true
-      }
-    });
-
-  } 
 }

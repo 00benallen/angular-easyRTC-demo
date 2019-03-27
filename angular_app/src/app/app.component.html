@@ -8,7 +8,7 @@
 
             <h2 class="card-title">Friends Online</h2>
 
-            <ng-container *ngIf="friendsOnline && friendsOnline.length > 0; else noFriends">
+            <ng-container *ngIf="isBackendReady(); else noFriends">
                 <p *ngFor="let friend of friendsOnline" class="card-text">> {{friend.username}}</p>
             </ng-container>
 
@@ -16,7 +16,7 @@
             
         </div>
 
-        <div class="card bg-secondary text-white" *ngIf="friendsOnline && friendsOnline.length > 0">
+        <div class="card bg-secondary text-white" *ngIf="isBackendReady()">
 
             <h2 class="card-title">Chat</h2>
 
@@ -30,7 +30,7 @@
             </div>
         </div>
 
-        <div class="card bg-secondary text-white" *ngIf="occupants && occupants.length > 0">
+        <div class="card bg-secondary text-white" *ngIf="isBackendReady()">
 
             <h2 class="card-title">Create a Post</h2>
 
@@ -44,12 +44,12 @@
             <button (click)="sendPost()" class="btn btn-outline-light btn-new-line">Submit</button>
 
         </div>
-        <div class="card bg-secondary text-white" *ngIf="occupants && occupants.length > 0 && posts && posts.length > 0">
+        <div class="card bg-secondary text-white" *ngIf="isBackendReady() && posts && posts.length > 0">
             <h2 class="card-title">Post Feed</h2>
             <ng-container *ngFor="let post of posts">
                 <div class="card bg-light text-dark">
                     <h3 class="card-text">{{post.title}}</h3>
-                    <h4 class="card-text">By: {{post.author}}</h4>
+                    <h4 class="card-text">By: {{post.author.username}}</h4>
                     <p class="card-text">{{post.content}}</p>
                 </div>
             </ng-container>

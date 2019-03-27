@@ -1,5 +1,6 @@
 import { BehaviorSubject } from 'rxjs';
 import { Injectable } from '@angular/core';
+import { synchronizerMap } from './synchronizers/index.sync';
 
 export interface User {
     easyRTCId: string;
@@ -72,6 +73,28 @@ export class StateService {
         state.room.localStateSynchronized = !needsResync;
 
         this.stateEvents$.next(state);
+    }
+
+    syncState(oldState: State, newState: State) {
+
+        let syncState = { ...oldState };
+
+        console.log('Synchronizing state using synchronizer map');
+        if(synchronizerMap.connection) {
+            syncState.connection = synchronizerMap.connection(oldState.connection, newState.connection);
+        } else if(synchronizerMap.room) {
+            syncState.room = synchronizerMap.room(oldState.room, newState.room);
+        }
+
+        console.log('Pushing synchronized state in local state');
+        this.pushNewState({
+            ...syncState,
+            room: {
+                ...syncState.room,
+                localStateSynchronized: true
+            }
+        });
+
     }
 
 }
