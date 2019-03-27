@@ -6,8 +6,9 @@
  */
 import { Injectable } from '@angular/core';
 import { environment } from 'src/environments/environment';
-import { ReplaySubject, AsyncSubject, Subscription, Observable, BehaviorSubject } from 'rxjs';
-import { map, combineLatest } from 'rxjs/operators';
+import { StateService, State, User, initialState } from './state';
+import { Subscription } from 'rxjs';
+import { sync } from './synchronizers/conversation.sync';
 
 /**
  * The socket.io.js and easyrtc.js files expose these two global variables, 
@@ -15,32 +16,8 @@ import { map, combineLatest } from 'rxjs/operators';
  */
 export const io = window["io"];
 
-export type PeerListenerEvent = {
-  user: User, 
-  msgType: string, 
-  msgData: any, 
-  targetting: Easyrtc_MessageTargeting
-}
-
-export type Message = {
-  data: any,
-  type: MessageType
-}
-
 export enum MessageType {
-  GENERAL_BROADCAST = "GENERAL_BROADCAST",
-  MESSAGE = "MESSAGE",
-  POST = "POST"
-}
-
-export type User = {
-  easyRTCId: string,
-  username: string
-}
-
-export type UserChange = {
-  user: User,
-  changeType: 'added' | 'removed'
+  SEND_SYNC = "SEND_SYNC"
 }
 
 /**
@@ -51,56 +28,56 @@ export type UserChange = {
 })
 export class EasyRTCService {
 
-  /**
-   * Subjects for various RTC state 
-   */
-  connectionOpen: boolean = false;
-  loginId$: AsyncSubject<string>;
+  private currentState: State;
+  private stateSubscription: Subscription;
 
-  onlineUsers$: BehaviorSubject<User[]>;
-  private onlineUsers: User[];
-  private onlineUsersChanges$: ReplaySubject<UserChange>;
-  messagesToSend$: ReplaySubject<Message>;
+  constructor(private stateService: StateService) { 
 
-  private p2pMessageSendSubscription: Subscription;
-  private onlineUserChangesSubscription: Subscription
+    // this.p2pMessageSendSubscription = this.messagesToSend$.subscribe(message => {
 
-  peerListenerEvents$: ReplaySubject<PeerListenerEvent>;
+    //   for(let user of this.onlineUsers) {
 
+    //     console.log(`Sending ${message.data as string} to ${user.username}`);
+    //     easyrtc.sendDataP2P(user.easyRTCId, message.type, message.data);
 
+    //   }
+    // })
 
-  constructor() { 
-
-    this.loginId$ = new AsyncSubject();
-    this.onlineUsersChanges$ = new ReplaySubject<UserChange>();
-    this.peerListenerEvents$ = new ReplaySubject<PeerListenerEvent>();
-    this.messagesToSend$ = new ReplaySubject<Message>();
-    this.onlineUsers = [];
-    this.onlineUsers$ = new BehaviorSubject<User[]>([]);
-
-    this.p2pMessageSendSubscription = this.messagesToSend$.subscribe(message => {
-
-      for(let user of this.onlineUsers) {
-
-        console.log(`Sending ${message.data as string} to ${user.username}`);
-        easyrtc.sendDataP2P(user.easyRTCId, message.type, message.data);
-
-      }
-    })
-
-    this.onlineUserChangesSubscription = this.onlineUsersChanges$.subscribe(changes => {
-      if(changes.changeType === 'added') {
-        console.log(`Adding ${changes.user.username} to list of online users`);
-        this.onlineUsers.push(changes.user);
-      } else {
-        console.log(`Removing ${changes.user.username} from list of online users`);
-        const index = this.onlineUsers.indexOf(changes.user, 0);
-        if (index > -1) {
-          this.onlineUsers.splice(index, 1);
-        }
-      }
-      this.onlineUsers$.next(this.onlineUsers);
+    // this.onlineUserChangesSubscription = this.onlineUsersChanges$.subscribe(changes => {
+    //   if(changes.changeType === 'added') {
+    //     console.log(`Adding ${changes.user.username} to list of online users`);
+    //     this.onlineUsers.push(changes.user);
+    //   } else {
+    //     console.log(`Removing ${changes.user.username} from list of online users`);
+    //     const index = this.onlineUsers.indexOf(changes.user, 0);
+    //     if (index > -1) {
+    //       this.onlineUsers.splice(index, 1);
+    //     }
+    //   }
+    //   this.onlineUsers$.next(this.onlineUsers);
       
+    // })
+
+    this.currentState = initialState;
+
+    this.stateSubscription = stateService.stateEvents$.subscribe((state) => {
+
+      this.currentState = state;
+
+      if(state.connection.newcomer) {
+        console.log("Processing state as newcomer, need to request state from peers")
+        //TODO request state versions from all peers
+      } else if(!state.room.localStateSynchronized){
+
+        console.log("Local state needs synchronizing with peers, sending local state to all peers");
+
+        for(let user of state.room.onlineUsers) {
+
+          easyrtc.sendDataP2P(user.easyRTCId, MessageType.SEND_SYNC, state);
+    
+        }
+
+      }
     })
 
     if (!io) {
@@ -113,12 +90,6 @@ export class EasyRTCService {
 
     let socket = io.connect(environment.easyRTCServer);
     easyrtc.useThisSocketConnection(socket);
-  }
-
-  public sendDataToRoom(data: any, type: MessageType) {
-
-    this.messagesToSend$.next({data: data, type: type});
-
   }
 
   public configureEasyRTCForData(username: string) {
@@ -136,7 +107,15 @@ export class EasyRTCService {
       easyrtc.setUsername(username);
     }
     easyrtc.connect("easyrtc.dataMessaging", this.loginSuccess.bind(this), this.loginFailure.bind(this));
-    this.connectionOpen = true;
+    
+    this.stateService.pushNewState({
+      connection: {
+        ...this.currentState.connection,
+        open: true
+      },
+      room: { ...this.currentState.room }
+    });
+
     console.log("Connected to easyRTC server");
   }
 
@@ -144,8 +123,15 @@ export class EasyRTCService {
 
     easyrtc.disconnect();
     io.disconnect();
-    this.p2pMessageSendSubscription.unsubscribe();
-    this.onlineUserChangesSubscription.unsubscribe();
+
+    this.stateService.pushNewState({
+      connection: {
+        ...this.currentState.connection,
+        open: false
+      },
+      room: { ...this.currentState.room }
+    });
+    this.stateSubscription.unsubscribe();
     console.log("Disconnected from easyRTC server");
 
   }
@@ -153,63 +139,160 @@ export class EasyRTCService {
   private openListener(caller: string) {
 
     console.log(`Data channel opened with ${caller}`);
-    this.onlineUsersChanges$.next({user: {easyRTCId: caller, username: easyrtc.idToName(caller)}, changeType: 'added'});
 
+    let newUser = {
+      easyRTCId: caller,
+      username: easyrtc.idToName(caller)
+    };
+
+    this.currentState.room.onlineUsers.push(newUser);
+
+    console.log(`Adding ${newUser} to list of online users`);
+    this.stateService.pushNewState({
+      connection: { ...this.currentState.connection },
+      room: {
+        ...this.currentState.room,
+        onlineUsers: this.currentState.room.onlineUsers,
+      }
+    });
   }
 
   private closeListener(caller: string) {
 
     console.log(`Data channel closed with ${caller}`);
-    this.onlineUsersChanges$.next({user: {easyRTCId: caller, username: easyrtc.idToName(caller)}, changeType: 'removed'});
 
+    console.log(`Removing ${caller} from list of online users`);
+
+    let userToRemove = this.buildUser(caller);
+
+    const index = this.currentState.room.onlineUsers.indexOf(userToRemove, 0);
+    if (index > -1) {
+      this.currentState.room.onlineUsers.splice(index, 1);
+    }
+
+    this.stateService.pushNewState({
+      room: {
+        onlineUsers: this.currentState.room.onlineUsers,
+        ...this.currentState.room
+      },
+      connection: { ...this.currentState.connection }
+    });
   }
 
-  private peerListener(easyrtcId:string, msgType:string, msgData:any, targetting:Easyrtc_MessageTargeting) {
-    console.log(`Recieved ${msgData} from ${easyrtc.idToName(easyrtcId)}`);
-    this.peerListenerEvents$.next(
-      {
-        user: {username: easyrtc.idToName(easyrtcId), easyRTCId: easyrtcId}, 
-        msgType: msgType, 
-        msgData: msgData, 
-        targetting: targetting
-      });
+  private peerListener(easyrtcId: string, msgType: string, msgData: State, targetting: Easyrtc_MessageTargeting) {
+    console.log(`Recieved ${msgType} message from ${easyrtc.idToName(easyrtcId)}`);
+
+    if(msgType === MessageType.SEND_SYNC) {
+      console.log('Recieved state from peer: '); 
+      console.log(msgData);
+
+      this.syncState(msgData);
+    }
+
+    // this.peerListenerEvents$.next(
+    //   {
+    //     user: {username: easyrtc.idToName(easyrtcId), easyRTCId: easyrtcId}, 
+    //     msgType: msgType, 
+    //     msgData: msgData, 
+    //     targetting: targetting
+    //   });
   }
 
   private occupantListener(_roomName: string, occupants: Easyrtc_PerRoomData, _isOwner: boolean) {
 
-    for (var occupant in occupants) {
+    if(this.currentState.connection.newcomer) {
+      for (var occupant in occupants) {
 
-      let connectStatus = easyrtc.getConnectStatus(occupant);
-      //If any of the occupants are not connected to us
-      if (connectStatus === easyrtc.NOT_CONNECTED) {
-        console.log(`Calling ${occupant} because we are not connected`);
-        easyrtc.call(occupant, 
-          (callee, _: 'datachannel') => {
-    
-            if(callee === occupant) {
-              console.log(`Called occupant ${callee} successfully`);
-            }
-    
-          },
-          (err: string, errMsg: string) => {
-    
-            console.log(`Unable to call occupant ${easyrtc.idToName(occupant)}, error: ${err} ${errMsg}`)
+        let connectStatus = easyrtc.getConnectStatus(occupant);
+        //If any of the occupants are not connected to us
+        if (connectStatus === easyrtc.NOT_CONNECTED) {
+          console.log(`Calling ${occupant} because we are not connected`);
+          easyrtc.call(occupant, 
+            (callee, mediaType: string) => {
+      
+              if(callee === occupant && mediaType === 'datachannel') {
+                console.log(`Called occupant ${callee} successfully`);
+              }
+      
+            },
+            (err: string, errMsg: string) => {
+      
+              console.log(`Unable to call occupant ${easyrtc.idToName(occupant)}, error: ${err} ${errMsg}`)
 
-          },
-          null, null
-          );
+            },
+            () => {}, []
+            );
+        }
       }
     }
+    this.stateService.pushNewState({
+      room: { ...this.currentState.room },
+      connection: {
+        ...this.currentState.connection,
+        newcomer: false
+      }
+    });
   }
 
-  private loginSuccess(easyrtcid) {
+  private loginSuccess(easyrtcid: string) {
     console.log(`Login successful, assigned ID ${easyrtcid}`);
-    this.loginId$.next(easyrtc.idToName(easyrtcid));
-    this.loginId$.complete();
+    this.stateService.pushNewState({
+      room: { 
+        ...this.currentState.room,
+        loggedInUser: this.buildUser(easyrtcid)
+        
+      },
+      connection: {
+        ...this.currentState.connection
+      }
+    });
   }
 
   private loginFailure(errorCode, message) {
     console.log(`Failed to login with code: ${errorCode} and message: ${message}`);
-    this.connectionOpen = false;
+    this.stateService.pushNewState({
+      room: { 
+        ...this.currentState.room 
+      },
+      connection: {
+        ...this.currentState.connection,
+        open: false
+      }
+    });
   }
+
+  public buildUser(easyRTCId?: string, username?: string): User {
+    if(easyRTCId) {
+      return {
+        easyRTCId: easyRTCId,
+        username: easyrtc.idToName(easyRTCId)
+      };
+    } else if(username) {
+      return {
+        easyRTCId: easyrtc.usernameToIds(username, 'default')[0],
+        username: username
+      }
+    } else {
+      return {
+        easyRTCId: "",
+        username: ""
+      }
+    }
+  }
+
+  private syncState(newState: State) {
+
+    let stateWithSyncedChat = sync(this.currentState, newState);
+
+
+    console.log('Pushing synchronized state in local state');
+    this.stateService.pushNewState({
+      ...stateWithSyncedChat,
+      room: {
+        ...stateWithSyncedChat.room,
+        localStateSynchronized: true
+      }
+    });
+
+  } 
 }

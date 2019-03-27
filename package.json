@@ -9,7 +9,7 @@
     "remove-git": "rm -rf ./server/server_example/node_modules/*/.git/ && rm -rf ./angular_app/node_modules/*/.git/",
     "start": "npm run start-local",
     "start-local": "(npm run start-local-server &) && npm run start-ui",
-    "start-ui": "cd ./angular_app && ng serve",
+    "start-ui": "cd ./angular_app && (ng serve --port=4200 --open &) && ng serve --port=4201 --open",
     "start-local-server": "cd ./server/server_example && npm run start"
   },
   "repository": {

@@ -1,59 +1,51 @@
-import { Injectable } from '@angular/core';
-import { EasyRTCService, MessageType } from './easy-rtc.service';
-import { Subscription, BehaviorSubject } from 'rxjs';
+// import { Injectable } from '@angular/core';
+// import { EasyRTCService, MessageType } from './easy-rtc.service';
+// import { Subscription, BehaviorSubject } from 'rxjs';
 
-export type Post = {
-  id: string,
-  postTime: Date,
-  title: string,
-  author: string,
-  content: string
-}
+// @Injectable({
+//   providedIn: 'root'
+// })
+// export class PostService {
 
-@Injectable({
-  providedIn: 'root'
-})
-export class PostService {
+//   posts$: BehaviorSubject<Post[]>;
+//   posts: Post[];
+//   peerListenerSubscription: Subscription;
 
-  posts$: BehaviorSubject<Post[]>;
-  posts: Post[];
-  peerListenerSubscription: Subscription;
+//   constructor(private easyRTCService: EasyRTCService) {
 
-  constructor(private easyRTCService: EasyRTCService) {
+//     this.posts = []
+//     this.posts$ = new BehaviorSubject<Post[]>(this.posts);
 
-    this.posts = []
-    this.posts$ = new BehaviorSubject<Post[]>(this.posts);
+//     easyRTCService.peerListenerEvents$.subscribe((event) => {
 
-    easyRTCService.peerListenerEvents$.subscribe((event) => {
+//       if(event.msgType === MessageType.POST) {
+//         console.log(`Adding new post to post log: ${event.msgData}`);
+//         this.posts.push(event.msgData);
+//       }
+//       this.posts$.next(this.posts);
+//     });
+//   }
 
-      if(event.msgType === MessageType.POST) {
-        console.log(`Adding new post to post log: ${event.msgData}`);
-        this.posts.push(event.msgData);
-      }
-      this.posts$.next(this.posts);
-    });
-  }
-
-  public startPostStream(username: string) {
+//   public startPostStream(username: string) {
     
-    if(!this.easyRTCService.connectionOpen) {
-      this.easyRTCService.configureEasyRTCForData(username);
-    }
+//     if(!this.easyRTCService.connectionOpen) {
+//       this.easyRTCService.configureEasyRTCForData(username);
+//     }
 
-  }
+//   }
 
-  public sendPost(post: Post) {
-    this.posts.push({...post, author: 'You' });
-    this.posts$.next(this.posts);
-    console.log(`Adding new post to post log: ${post}`);
-    this.easyRTCService.sendDataToRoom(post, MessageType.POST);
-  }
+//   public sendPost(post: Post) {
+//     this.posts.push({...post, author: 'You' });
+//     this.posts$.next(this.posts);
+//     console.log(`Adding new post to post log: ${post}`);
+//     this.easyRTCService.sendDataToRoom(post, MessageType.POST);
+//   }
 
-  public close(closeUnderlying: boolean) {
-    this.peerListenerSubscription.unsubscribe();
+//   public close(closeUnderlying: boolean) {
+//     this.peerListenerSubscription.unsubscribe();
 
-    if(closeUnderlying && this.easyRTCService.connectionOpen) {
-      this.easyRTCService.close();
-    }
-  }
-}
+//     if(closeUnderlying && this.easyRTCService.connectionOpen) {
+//       this.easyRTCService.close();
+//     }
+//   }
+// }
