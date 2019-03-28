@@ -1,5 +1,11 @@
-import { ChatMessage } from '../state';
+import { ChatMessage } from '../services/state';
+import { removeDuplicates } from './common.sync';
 
+/**
+ * Synchronize two chat feeds
+ * @param currentChat - local storage of chat
+ * @param newChat - new chat from peer
+ */
 export function sync(currentChat: ChatMessage[], newChat: ChatMessage[]): ChatMessage[] {
 
     if (currentChat.length === 0) {
@@ -10,22 +16,17 @@ export function sync(currentChat: ChatMessage[], newChat: ChatMessage[]): ChatMe
         return currentChat;
     }
 
-    const syncChat = removeDuplicates(currentChat.concat(newChat)).sort((a: ChatMessage, b: ChatMessage) => {
+    /**
+     * Combine all chat together, remove duplicates, sort by date-time
+     */
+    const combinedChat = currentChat.concat(newChat);
+    const uniqueCombinedChat = removeDuplicates(combinedChat) as ChatMessage[];
+    const syncedChat = uniqueCombinedChat.
+    sort((a: ChatMessage, b: ChatMessage) => { // sort by date-time, old to new
         return new Date(a.sentTime).getTime() - new Date(b.sentTime).getTime();
     });
+    
 
-    return syncChat;
+    return syncedChat;
 
-}
-
-function removeDuplicates(chatMessages: ChatMessage[]) {
-    const uniqueIDs: string[] = [];
-    const uniqueMessages: ChatMessage[] = [];
-    for (let i = 0; i < chatMessages.length; i++) {
-        if (uniqueIDs.indexOf(chatMessages[i].id) === -1) {
-            uniqueMessages.push(chatMessages[i]);
-            uniqueIDs.push(chatMessages[i].id);
-        }
-    }
-    return uniqueMessages;
 }

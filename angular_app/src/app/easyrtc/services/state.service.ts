@@ -1,44 +1,8 @@
 import { BehaviorSubject } from 'rxjs';
 import { Injectable } from '@angular/core';
-import { synchronizerMap } from './synchronizers/index.sync';
-
-export interface User {
-    easyRTCId: string;
-    username: string;
-}
-
-export interface ChatMessage {
-    id: string;
-    author: User;
-    content: string;
-    sentTime: Date;
-}
-
-export interface Post {
-    id: string;
-    postTime: Date;
-    title: string;
-    author: User;
-    content: string;
-}
-
-export interface Room {
-    loggedInUser?: User;
-    onlineUsers: User[];
-    chat: ChatMessage[];
-    postFeed: Post[];
-    localStateSynchronized: boolean;
-}
-
-export interface Connection {
-    open: boolean;
-    newcomer: boolean;
-}
-
-export interface State {
-    room: Room;
-    connection: Connection;
-}
+import { synchronizerMap } from '../synchronizers/index.sync';
+import { State, Connection, Room } from './state';
+import { PersistanceService } from './persistance.service';
 
 const initialRoomState: Room = {
     chat: [],
@@ -63,6 +27,8 @@ export const initialState: State = {
 })
 export class StateService {
 
+    constructor(private persistanceService: PersistanceService) { }
+
     stateEvents$: BehaviorSubject<State> = new BehaviorSubject<State>(initialState);
 
     pushNewState(state: State, needsResync: boolean = false) {
@@ -73,6 +39,11 @@ export class StateService {
         state.room.localStateSynchronized = !needsResync;
 
         this.stateEvents$.next(state);
+
+        if (state.room.loggedInUser) {
+            this.persistanceService.saveToLocalStorage(state, state.room.loggedInUser.username);
+        }
+        
     }
 
     syncState(oldState: State, newState: State) {

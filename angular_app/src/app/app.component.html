@@ -8,7 +8,7 @@
 
             <h2 class="card-title">Friends Online</h2>
 
-            <ng-container *ngIf="isBackendReady(); else noFriends">
+            <ng-container *ngIf="friendsOnline && friendsOnline.length > 0; else noFriends">
                 <p *ngFor="let friend of friendsOnline" class="card-text">> {{friend.username}}</p>
             </ng-container>
 
@@ -16,7 +16,7 @@
             
         </div>
 
-        <div class="card bg-secondary text-white" *ngIf="isBackendReady()">
+        <div class="card bg-secondary text-white">
 
             <h2 class="card-title">Chat</h2>
 
@@ -30,7 +30,7 @@
             </div>
         </div>
 
-        <div class="card bg-secondary text-white" *ngIf="isBackendReady()">
+        <div class="card bg-secondary text-white">
 
             <h2 class="card-title">Create a Post</h2>
 
@@ -44,7 +44,7 @@
             <button (click)="sendPost()" class="btn btn-outline-light btn-new-line">Submit</button>
 
         </div>
-        <div class="card bg-secondary text-white" *ngIf="isBackendReady() && posts && posts.length > 0">
+        <div class="card bg-secondary text-white" *ngIf="posts && posts.length > 0">
             <h2 class="card-title">Post Feed</h2>
             <ng-container *ngFor="let post of posts">
                 <div class="card bg-light text-dark">
@@ -59,11 +59,15 @@
     <ng-template #loginSection>
 
             <div class="card bg-secondary text-white">
-                <h2 class="card-title">Enter your desired username, or click start chatting to get a random one: </h2>
+                <h2 class="card-title">Enter your username: </h2>
                 <div class="card-body">
                     
                     <input [(ngModel)]="username">
                     <button (click)="login()" class="btn btn-primary btn-new-line">Start chatting!</button>
+
+                    <alert class="p-3" type="danger" *ngIf="usernameAlert">
+                        <strong>Oh snap!</strong> Username must be valid.
+                    </alert>
                 </div>
             </div>
             

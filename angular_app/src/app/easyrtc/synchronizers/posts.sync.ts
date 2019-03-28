@@ -1,5 +1,11 @@
-import { Post } from '../state';
+import { Post } from '../services/state';
+import { removeDuplicates } from './common.sync';
 
+/**
+ * Synchronize two post streams
+ * @param currentPosts - local post stream
+ * @param newPosts - post stream from peer
+ */
 export function sync(currentPosts: Post[], newPosts: Post[]): Post[] {
 
     if (currentPosts.length === 0) {
@@ -10,22 +16,16 @@ export function sync(currentPosts: Post[], newPosts: Post[]): Post[] {
         return currentPosts;
     }
 
-    const syncPosts = removeDuplicates(currentPosts.concat(newPosts)).sort((a: Post, b: Post) => {
+    /**
+     * Combine all posts together, remove duplicates, sort by date-time
+     */
+    const combinedPosts = currentPosts.concat(newPosts);
+    const uniqueCombinedPosts = removeDuplicates(combinedPosts) as Post[];
+    const syncedPosts = uniqueCombinedPosts.
+    sort((a: Post, b: Post) => { // sort by date-time, old to new
         return new Date(a.postTime).getTime() - new Date(b.postTime).getTime();
     });
+    
+    return syncedPosts;
 
-    return syncPosts;
-
-}
-
-function removeDuplicates(posts: Post[]) {
-    const uniqueIDs: string[] = [];
-    const uniquePosts: Post[] = [];
-    for (let i = 0; i < posts.length; i++) {
-        if (uniqueIDs.indexOf(posts[i].id) === -1) {
-            uniquePosts.push(posts[i]);
-            uniqueIDs.push(posts[i].id);
-        }
-    }
-    return uniquePosts;
 }

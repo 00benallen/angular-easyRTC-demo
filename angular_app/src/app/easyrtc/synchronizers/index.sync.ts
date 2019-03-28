@@ -8,7 +8,7 @@
  * state object from the P2P network, using whatever logic is appropriate
  */
 
-import { State } from '../state';
+import { State } from '../services/state';
 import { sync as roomSync } from './room.sync';
 
 /**
@@ -33,5 +33,5 @@ export type StateParameterSynchronizerMap<TypeToSync> = {
  */
 export const synchronizerMap: StateParameterSynchronizerMap<State> = {
     connection: undefined,
-    room: roomSync
+    room: roomSync // from room.sync.ts
 };

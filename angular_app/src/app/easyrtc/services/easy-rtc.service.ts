@@ -1,13 +1,15 @@
 // This gives us access to the static type declarations given by easyRTC
-/// <reference path="../../../node_modules/easyrtc/typescript_support/d.ts.files/client/easyrtc.d.ts" />
+/// <reference path="../../../../node_modules/easyrtc/typescript_support/d.ts.files/client/easyrtc.d.ts" />
 
 /**
  * Imports
  */
 import { Injectable } from '@angular/core';
 import { environment } from 'src/environments/environment';
-import { StateService, State, User, initialState } from './state';
+import { State, User } from './state';
 import { Subscription } from 'rxjs';
+import { StateService, initialState } from './state.service';
+import { PersistanceService } from './persistance.service';
 
 /**
  * The socket.io.js and easyrtc.js files expose these two global variables,
@@ -33,32 +35,9 @@ export class EasyRTCService {
 
   private sendSyncWaitingUsers: string[];
 
-  constructor(private stateService: StateService) {
-
-    // this.p2pMessageSendSubscription = this.messagesToSend$.subscribe(message => {
-
-    //   for(let user of this.onlineUsers) {
-
-    //     console.log(`Sending ${message.data as string} to ${user.username}`);
-    //     easyrtc.sendDataP2P(user.easyRTCId, message.type, message.data);
-
-    //   }
-    // })
-
-    // this.onlineUserChangesSubscription = this.onlineUsersChanges$.subscribe(changes => {
-    //   if(changes.changeType === 'added') {
-    //     console.log(`Adding ${changes.user.username} to list of online users`);
-    //     this.onlineUsers.push(changes.user);
-    //   } else {
-    //     console.log(`Removing ${changes.user.username} from list of online users`);
-    //     const index = this.onlineUsers.indexOf(changes.user, 0);
-    //     if (index > -1) {
-    //       this.onlineUsers.splice(index, 1);
-    //     }
-    //   }
-    //   this.onlineUsers$.next(this.onlineUsers);
-
-    // })
+  constructor(
+    private stateService: StateService,
+    private persistanceService: PersistanceService) {
 
     this.currentState = initialState;
     this.sendSyncWaitingUsers = [];
@@ -68,7 +47,6 @@ export class EasyRTCService {
       this.currentState = state;
 
       if (state.connection.newcomer) {
-
         for (const user of state.room.onlineUsers) {
 
           console.log('Sending request for state sync as newcomer from user: ', user);
@@ -178,17 +156,15 @@ export class EasyRTCService {
 
     console.log(`Removing ${caller} from list of online users`);
 
-    const userToRemove = this.buildUser(caller);
-
-    const index = this.currentState.room.onlineUsers.indexOf(userToRemove, 0);
+    const index = this.currentState.room.onlineUsers.map(user => user.easyRTCId).indexOf(caller, 0);
     if (index > -1) {
       this.currentState.room.onlineUsers.splice(index, 1);
     }
 
     this.stateService.pushNewState({
       room: {
+        ...this.currentState.room,
         onlineUsers: this.currentState.room.onlineUsers,
-        ...this.currentState.room
       },
       connection: { ...this.currentState.connection }
     });
@@ -222,14 +198,6 @@ export class EasyRTCService {
       this.sendSyncDataToRequestingPeer(easyrtcId);
 
     }
-
-    // this.peerListenerEvents$.next(
-    //   {
-    //     user: {username: easyrtc.idToName(easyrtcId), easyRTCId: easyrtcId},
-    //     msgType: msgType,
-    //     msgData: msgData,
-    //     targetting: targetting
-    //   });
   }
 
   private sendSyncDataToRequestingPeer(peerId: string) {
@@ -284,17 +252,50 @@ export class EasyRTCService {
   }
 
   private loginSuccess(easyrtcid: string) {
-    console.log(`Login successful, assigned ID ${easyrtcid}`);
-    this.stateService.pushNewState({
-      room: {
-        ...this.currentState.room,
-        loggedInUser: this.buildUser(easyrtcid)
 
-      },
-      connection: {
-        ...this.currentState.connection
-      }
-    });
+    console.log(`Login successful, assigned ID ${easyrtcid}`);
+
+    const loggedInUser = this.buildUser(easyrtcid);
+    const localStorageState = this.persistanceService.loadFromLocalStorage(loggedInUser.username);
+
+    if (localStorageState) {
+
+      const initialStateWithPersistantFields = { 
+        connection: {
+          open: true,
+          newcomer: true
+        },
+        room: {
+          ...localStorageState.room,
+          onlineUsers: [],
+          localStateSynchronized: false
+        }
+      };
+
+      this.stateService.pushNewState({
+        room: {
+          ...initialStateWithPersistantFields.room,
+          loggedInUser: loggedInUser
+  
+        },
+        connection: {
+          ...initialStateWithPersistantFields.connection
+        }
+      });
+    } else {
+      this.stateService.pushNewState({
+        room: {
+          ...this.currentState.room,
+          loggedInUser: loggedInUser
+  
+        },
+        connection: {
+          ...this.currentState.connection
+        }
+      });
+    }
+
+    
   }
 
   private loginFailure(errorCode, message) {

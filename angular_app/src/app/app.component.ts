@@ -1,8 +1,9 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { EasyRTCService } from './easyrtc/easy-rtc.service';
+import { EasyRTCService } from './easyrtc/services/easy-rtc.service';
 import { Subscription } from 'rxjs';
 import { v4 as uuid } from 'uuid';
-import { State, StateService, Post, initialState, User, ChatMessage } from './easyrtc/state';
+import { State, User, ChatMessage, Post } from './easyrtc/services/state';
+import { StateService, initialState } from './easyrtc/services/state.service';
 
 @Component({
   selector: 'app-root',
@@ -29,9 +30,10 @@ export class AppComponent implements OnInit, OnDestroy {
    * Bound variables from template
    */
   text: string;
-  username: string;
+  username: string | undefined;
   postTitle: string;
   postContent: string;
+  usernameAlert: boolean;
 
   constructor(
     private easyRTCService: EasyRTCService,
@@ -39,12 +41,12 @@ export class AppComponent implements OnInit, OnDestroy {
     private stateService: StateService) {
 
     this.text = '';
-    this.username = '';
     this.postContent = '';
     this.postTitle = '';
     this.friendsOnline = [];
     this.conversation = [];
     this.posts = [];
+    this.usernameAlert = false;
 
     this.easyRTCState = initialState;
 
@@ -68,6 +70,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
+
     this.stateDetectChangesSubscription = this.stateService.stateEvents$.subscribe((state) => {
       this.changeDet.detectChanges();
     });
@@ -82,7 +85,11 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   login() {
-    this.easyRTCService.configureEasyRTCForData(this.username);
+    if (this.username) {
+      this.easyRTCService.configureEasyRTCForData(this.username);
+    } else {
+      this.usernameAlert = true;
+    }
   }
 
   sendMessage() {
@@ -142,9 +149,5 @@ export class AppComponent implements OnInit, OnDestroy {
 
   onMessageType(text: string) {
     this.text = text;
-  }
-
-  isBackendReady(): boolean {
-    return this.friendsOnline && this.friendsOnline.length > 0 && !this.easyRTCState.connection.newcomer;
   }
 }
