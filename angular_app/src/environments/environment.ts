@@ -5,7 +5,7 @@
 export const environment = {
   production: false,
 
-  easyRTCServer: "http://localhost:8080"
+  easyRTCServer: 'http://localhost:8080'
 };
 
 /*

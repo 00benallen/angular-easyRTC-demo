@@ -39,30 +39,30 @@ export interface State {
     room: Room;
     connection: Connection;
 }
-  
+
 const initialRoomState: Room = {
     chat: [],
     localStateSynchronized: false,
     loggedInUser: undefined,
     onlineUsers: [],
     postFeed: []
-}
+};
 
 const initialConnectionState: Connection = {
     newcomer: true,
     open: false
-}
+};
 
 export const initialState: State = {
     room: initialRoomState,
     connection: initialConnectionState
-}
+};
 
 @Injectable({
     providedIn: 'root'
 })
 export class StateService {
-    
+
     stateEvents$: BehaviorSubject<State> = new BehaviorSubject<State>(initialState);
 
     pushNewState(state: State, needsResync: boolean = false) {
@@ -77,12 +77,12 @@ export class StateService {
 
     syncState(oldState: State, newState: State) {
 
-        let syncState = { ...oldState };
+        const syncState = { ...oldState };
 
         console.log('Synchronizing state using synchronizer map');
-        if(synchronizerMap.connection) {
+        if (synchronizerMap.connection) {
             syncState.connection = synchronizerMap.connection(oldState.connection, newState.connection);
-        } else if(synchronizerMap.room) {
+        } else if (synchronizerMap.room) {
             syncState.room = synchronizerMap.room(oldState.room, newState.room);
         }
 

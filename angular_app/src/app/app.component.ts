@@ -38,10 +38,10 @@ export class AppComponent implements OnInit, OnDestroy {
     private changeDet: ChangeDetectorRef,
     private stateService: StateService) {
 
-    this.text = "";
-    this.username = "";
-    this.postContent = "";
-    this.postTitle = "";
+    this.text = '';
+    this.username = '';
+    this.postContent = '';
+    this.postTitle = '';
     this.friendsOnline = [];
     this.conversation = [];
     this.posts = [];
@@ -51,7 +51,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.stateSynchronizeSubscription = this.stateService.stateEvents$.subscribe((state) => {
       this.easyRTCState = state;
 
-      //Synchronize convenience variables with new state
+      // Synchronize convenience variables with new state
       if (state) {
 
         if (state.room.loggedInUser) {
@@ -62,21 +62,21 @@ export class AppComponent implements OnInit, OnDestroy {
         this.posts = state.room.postFeed;
 
       }
-      
-    })
+
+    });
 
   }
 
-  ngOnInit() { 
+  ngOnInit() {
     this.stateDetectChangesSubscription = this.stateService.stateEvents$.subscribe((state) => {
       this.changeDet.detectChanges();
-    })
+    });
   }
 
   ngOnDestroy() {
     this.easyRTCService.close();
     this.stateSynchronizeSubscription.unsubscribe();
-    if(this.stateDetectChangesSubscription) {
+    if (this.stateDetectChangesSubscription) {
       this.stateDetectChangesSubscription.unsubscribe();
     }
   }
@@ -87,16 +87,16 @@ export class AppComponent implements OnInit, OnDestroy {
 
   sendMessage() {
 
-    if(this.easyRTCState) {
+    if (this.easyRTCState) {
       this.easyRTCState.room.chat.push({
         id: uuid(),
         author: this.easyRTCService.buildUser(undefined, this.username),
         content: this.text,
         sentTime: new Date()
-      })
+      });
 
       this.stateService.pushNewState({
-        room: { 
+        room: {
           chat: this.easyRTCState.room.chat,
           ...this.easyRTCState.room
         },
@@ -107,21 +107,21 @@ export class AppComponent implements OnInit, OnDestroy {
       true);
     }
 
-    this.text = "";
+    this.text = '';
   }
 
   sendPost() {
-    if(this.easyRTCState) {
+    if (this.easyRTCState) {
       this.easyRTCState.room.postFeed.push({
         author: this.easyRTCService.buildUser(undefined, this.username),
         content: this.postContent,
         id: uuid(),
         postTime: new Date(),
         title: this.postTitle
-      })
+      });
 
       this.stateService.pushNewState({
-        room: { 
+        room: {
           chat: this.easyRTCState.room.postFeed,
           ...this.easyRTCState.room
         },
@@ -132,13 +132,13 @@ export class AppComponent implements OnInit, OnDestroy {
       true);
     }
 
-    this.postTitle = "";
-    this.postContent = "";
+    this.postTitle = '';
+    this.postContent = '';
   }
 
   onUsernameType(username: string) {
     this.username = username;
-  } 
+  }
 
   onMessageType(text: string) {
     this.text = text;
